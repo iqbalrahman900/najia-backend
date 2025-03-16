@@ -9,12 +9,13 @@ export class User {
   _id: Types.ObjectId;
 
   @Prop({ required: true })
-  firebaseUid: string;
-
-  @Prop({ required: true })
   phoneNumber: string;
 
-  @Prop()
+  // Keep this for backward compatibility during transition
+  @Prop({ sparse: true })
+  firebaseUid: string;
+
+  @Prop({ sparse: true })
   email: string;
 
   @Prop()
@@ -34,3 +35,8 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+// Add indexes
+UserSchema.index({ phoneNumber: 1 }, { unique: true });
+UserSchema.index({ email: 1 }, { sparse: true });
+UserSchema.index({ firebaseUid: 1 }, { sparse: true });

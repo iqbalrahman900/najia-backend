@@ -18,6 +18,7 @@ export class GuardianService {
     @InjectModel('Child') private childModel: Model<ChildDocument>,
     @InjectModel('User') private userModel: Model<User>,
     @InjectModel('Task') private taskModel: Model<TaskDocument>,
+    
   ) {}
 
   private async generateUniqueLoginCode(): Promise<string> {

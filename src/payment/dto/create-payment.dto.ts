@@ -1,16 +1,27 @@
-// payment/dto/create-payment.dto.ts
-import { IsNumber, IsString } from 'class-validator';
+import { IsNumber, IsString, IsOptional } from 'class-validator';
 
 export class CreatePaymentDto {
- @IsNumber()
- amount: number;
+  @IsNumber()
+  amount: number;  // Final amount in sengi
 
- @IsString()
- currency: string;
+  @IsNumber()
+  @IsOptional()
+  originalAmount?: number;  // Original amount in sengi
 
- @IsString()
- uid: string;
+  @IsNumber()
+  @IsOptional()
+  discountAmount?: number;  // Discount amount in sengi
 
- @IsString()
- planType: string;
+  @IsString()
+  currency: string;
+
+  @IsString()
+  uid: string;
+
+  @IsString()
+  planType: string;
+
+  @IsString()
+  @IsOptional()
+  voucherCode?: string;
 }

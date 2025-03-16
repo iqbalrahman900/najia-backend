@@ -2,21 +2,24 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-import * as admin from 'firebase-admin';
-import * as serviceAccount from './config/service-account.json';
 
 async function bootstrap() {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount as admin.ServiceAccount)
+  // Create NestJS app with raw body enabled
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true // Enable raw body parsing for Stripe webhooks
   });
 
-  const app = await NestFactory.create(AppModule);
+  // Configure CORS
   app.enableCors({
     origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
+
+  // Enable validation pipe
   app.useGlobalPipes(new ValidationPipe());
+
+  // Start server
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

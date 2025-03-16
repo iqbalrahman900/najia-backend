@@ -1,4 +1,3 @@
-// payment/schemas/payment.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
@@ -20,10 +19,23 @@ export class Payment extends Document {
   status: string;
 
   @Prop()
-  discountCode?: string;
+  stripePaymentIntentId: string;
 
   @Prop()
-  stripePaymentIntentId: string;
+  voucherCode?: string;
+
+  @Prop()
+  discountAmount?: number;
+
+  @Prop()
+  originalAmount?: number;
+
+  @Prop({ type: Object })
+  voucherDetails?: {
+    code: string;
+    discountType: 'percentage' | 'fixed';
+    discountValue: number;
+  };
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

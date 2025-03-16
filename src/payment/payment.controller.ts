@@ -30,8 +30,47 @@ export class PaymentController {
     return this.paymentService.confirmPayment(body);
   }
 
-  @Post('validate-promo')
-  validatePromo(@Body() body: { code: string }) {
-    return this.paymentService.validatePromoCode(body.code);
+  @Post('validate-voucher')
+  async validateVoucher(
+    @Body() body: { code: string, amount?: number }
+  ) {
+    const validation = await this.paymentService.validateVoucherCode(body.code);
+    
+    if (!validation.valid) {
+      return validation;
+    }
+
+    // If amount is provided, calculate the discounted price
+    if (body.amount) {
+      const calculation = await this.paymentService.calculateDiscountedAmount(
+        body.amount,
+        body.code
+      );
+      
+      return {
+        ...validation,
+        originalAmount: body.amount,
+        finalAmount: calculation.finalAmount,
+        discountAmount: calculation.discountAmount,
+      };
+    }
+
+    return validation;
   }
+
+
+  @Post('create-voucher')
+async createVoucher(@Body() body: {
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountAmount: number;
+  expiresAt?: string;  // ISO date string
+  maxRedemptions?: number;
+}) {
+  const data = {
+    ...body,
+    expiresAt: body.expiresAt ? new Date(body.expiresAt) : undefined,
+  };
+  return this.paymentService.createVoucher(data);
+}
 }

@@ -2,29 +2,28 @@
 import { Controller, Post, Get, Body, UseGuards, Patch, NotFoundException } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
-import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
-import { User } from './decorators/user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { User } from '../decorators/user.decorator';
 import { EditProfileDto } from './dto/edit-profile.dto';
+import { Public } from '../decorators/public.decorator';
 
 @Controller('users')
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) { }
 
   @Post('register')
-  async register(
-    @User('uid') firebaseUid: string,
-    @Body('phoneNumber') phoneNumber: string,
-  ) {
-    return this.userService.createUser(firebaseUid, phoneNumber);
+  @Public() // Public endpoint - doesn't require JWT
+  async register(@Body('phoneNumber') phoneNumber: string) {
+    return this.userService.createUser(phoneNumber);
   }
 
   @Post('profile')
   async completeProfile(
-    @User('uid') firebaseUid: string,
+    @User('userId') userId: string,
     @Body() profileData: CompleteProfileDto,
   ) {
-    const updatedUser = await this.userService.completeProfile(firebaseUid, profileData);
+    const updatedUser = await this.userService.completeProfile(userId, profileData);
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }
@@ -32,8 +31,8 @@ export class UserController {
   }
 
   @Get('profile')
-  async getProfile(@User('uid') firebaseUid: string) {
-    const user = await this.userService.getUserProfile(firebaseUid);
+  async getProfile(@User('userId') userId: string) {
+    const user = await this.userService.getUserProfile(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -42,15 +41,15 @@ export class UserController {
 
   @Patch('profile')
   async editProfile(
-    @User('uid') firebaseUid: string,
+    @User('userId') userId: string,
     @Body() profileData: EditProfileDto,
   ) {
-    return this.userService.editProfile(firebaseUid, profileData);
+    return this.userService.editProfile(userId, profileData);
   }
 
   @Patch('upgrade')
-  async upgradeAccount(@User('uid') firebaseUid: string) {
-    const updatedUser = await this.userService.updateAccountType(firebaseUid, 'premium');
+  async upgradeAccount(@User('userId') userId: string) {
+    const updatedUser = await this.userService.updateAccountType(userId, 'premium');
     if (!updatedUser) {
       throw new NotFoundException('User not found');
     }

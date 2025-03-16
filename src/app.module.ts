@@ -14,6 +14,9 @@ import { ContactModule } from './contact/contact.module';
 import { DailyWorshipModule } from './ daily-worship/daily-worship.module';
 import { GuardianModule } from './guardian/guardian.module';
 import { GroceriesModule } from './groceries/groceries.module';
+import { S3Module } from './s3/s3.module';
+import { OtpModule } from './otp/otp.module';
+import { FirebaseModule } from './firebase/firebase.module';
 
 @Module({
   imports: [
@@ -44,7 +47,10 @@ import { GroceriesModule } from './groceries/groceries.module';
     ContactModule,
 DailyWorshipModule,
     GuardianModule,
-    GroceriesModule
+    GroceriesModule,
+    S3Module,
+    OtpModule,
+    FirebaseModule,
   ],
 })
 export class AppModule {}

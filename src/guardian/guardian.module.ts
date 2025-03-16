@@ -7,9 +7,11 @@ import { Child, ChildSchema } from './entities/child.entity';
 import { Guardian, GuardianSchema } from './entities/guardian.entity';
 import { User, UserSchema } from '../user/schemas/user.schema'; // Import User model
 import { Task, TaskSchema } from './entities/task.entity';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     MongooseModule.forFeature([
       { name: Child.name, schema: ChildSchema },
       { name: Guardian.name, schema: GuardianSchema },

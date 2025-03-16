@@ -1,12 +1,17 @@
 // src/auth/guards/auth.guard.ts
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import * as admin from 'firebase-admin';
+import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../../decorators/public.decorator';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -22,15 +27,20 @@ export class AuthGuard implements CanActivate {
     const token = this.extractTokenFromHeader(request);
     
     if (!token) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Missing authentication token');
     }
 
     try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
-      request.user = decodedToken;
+      const secret = this.configService.get<string>('JWT_SECRET');
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: secret,
+      });
+      
+      // Attach the decoded token payload to the request object
+      request.user = payload;
       return true;
-    } catch {
-      throw new UnauthorizedException();
+    } catch (error) {
+      throw new UnauthorizedException('Invalid authentication token');
     }
   }
 
