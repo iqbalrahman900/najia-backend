@@ -1,4 +1,3 @@
-// user/user.service.ts
 import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -16,19 +15,23 @@ export class UserService {
 
   // Find user by phone number (for OTP authentication)
   async findByPhone(phoneNumber: string) {
+    this.logger.debug(`Looking for user with phone number: ${phoneNumber}`);
     return this.userModel.findOne({ phoneNumber });
   }
 
   // Find user by email
   async findByEmail(email: string) {
+    this.logger.debug(`Looking for user with email: ${email}`);
     return this.userModel.findOne({ email });
   }
 
   // Find by MongoDB ID (used by JWT strategy)
   async findById(id: string) {
     try {
+      this.logger.debug(`Looking for user by ID: ${id}`);
       const user = await this.userModel.findById(id);
       if (!user) {
+        this.logger.debug(`No user found with ID: ${id}`);
         return null;
       }
       return user;
@@ -41,9 +44,11 @@ export class UserService {
   // COMPATIBILITY METHOD: Find by Firebase UID
   // This method helps with the transition from Firebase to JWT auth
   async findByFirebaseUid(firebaseUid: string) {
+    this.logger.debug(`Looking for user by Firebase UID: ${firebaseUid}`);
     // During transition, we'll store firebaseUid in a separate field
     const user = await this.userModel.findOne({ firebaseUid });
     if (!user) {
+      this.logger.debug(`No user found with Firebase UID: ${firebaseUid}`);
       throw new NotFoundException('User not found');
     }
     return user;
@@ -58,72 +63,111 @@ export class UserService {
 
   // Create a new user from phone number (called after OTP verification)
   async createUser(phoneNumber: string, firebaseUid?: string) {
-    // Check if user already exists
-    const existingUser = await this.findByPhone(phoneNumber);
-    if (existingUser) {
-      // If user exists but doesn't have firebaseUid (and one is provided), update it
-      if (firebaseUid && !existingUser.firebaseUid) {
-        existingUser.firebaseUid = firebaseUid;
-        await existingUser.save();
+    this.logger.log(`Creating/finding user with phone: ${phoneNumber}, Firebase UID: ${firebaseUid || 'none'}`);
+    
+    try {
+      // Check if user already exists
+      const existingUser = await this.findByPhone(phoneNumber);
+      
+      if (existingUser) {
+        this.logger.log(`User already exists with phone ${phoneNumber}, ID: ${existingUser._id}`);
+        
+        // If user exists but doesn't have firebaseUid (and one is provided), update it
+        if (firebaseUid && !existingUser.firebaseUid) {
+          this.logger.log(`Updating existing user with Firebase UID: ${firebaseUid}`);
+          existingUser.firebaseUid = firebaseUid;
+          await existingUser.save();
+          this.logger.log('Firebase UID updated successfully');
+        }
+        
+        return existingUser;
       }
-      return existingUser;
-    }
 
-    // Create new user
-    const user = new this.userModel({
-      phoneNumber,
-      firebaseUid, // Store firebaseUid if provided (for transition period)
-      isProfileComplete: false,
-      accountType: 'basic'
-    });
-    return user.save();
+      // Create new user
+      this.logger.log(`No existing user found, creating new user with phone: ${phoneNumber}`);
+      const user = new this.userModel({
+        phoneNumber,
+        firebaseUid, // Store firebaseUid if provided (for transition period)
+        isProfileComplete: false,
+        accountType: 'basic',
+        createdAt: new Date()
+      });
+      
+      const savedUser = await user.save();
+      this.logger.log(`New user created successfully, ID: ${savedUser._id}`);
+      return savedUser;
+    } catch (error) {
+      this.logger.error(`Error in createUser: ${error.message}`);
+      throw error;
+    }
   }
 
   // Complete user profile
   async completeProfile(userId: string, profileData: CompleteProfileDto) {
+    this.logger.log(`Completing profile for user ${userId}`);
+    
     // Check if email is already in use by another user
     if (profileData.email) {
+      this.logger.debug(`Checking if email ${profileData.email} is already in use`);
       const existingUserWithEmail = await this.userModel.findOne({
         email: profileData.email,
         _id: { $ne: userId }
       });
 
       if (existingUserWithEmail) {
+        this.logger.warn(`Email ${profileData.email} is already in use by another user`);
         throw new ConflictException('Email already in use');
       }
     }
 
-    const updatedUser = await this.userModel.findByIdAndUpdate(
-      userId,
-      {
-        ...profileData,
-        dateOfBirth: new Date(profileData.dateOfBirth),
-        isProfileComplete: true,
-      },
-      { new: true },
-    );
+    try {
+      const updatedUser = await this.userModel.findByIdAndUpdate(
+        userId,
+        {
+          ...profileData,
+          dateOfBirth: new Date(profileData.dateOfBirth),
+          isProfileComplete: true,
+          updatedAt: new Date()
+        },
+        { new: true },
+      );
 
-    if (!updatedUser) {
-      throw new NotFoundException('User not found');
+      if (!updatedUser) {
+        this.logger.warn(`User not found with ID ${userId} when completing profile`);
+        throw new NotFoundException('User not found');
+      }
+
+      this.logger.log(`Profile completed successfully for user ${userId}`);
+      return updatedUser;
+    } catch (error) {
+      this.logger.error(`Error completing profile for user ${userId}: ${error.message}`);
+      throw error;
     }
-
-    return updatedUser;
   }
 
   // Get user profile - works with either ID or Firebase UID
   async getUserProfile(userIdentifier: string) {
+    this.logger.log(`Getting profile for user with identifier: ${userIdentifier}`);
+    
     // Try to find by MongoDB ID first
     try {
       const userById = await this.findById(userIdentifier);
-      if (userById) return userById;
+      if (userById) {
+        this.logger.debug(`Found user by MongoDB ID: ${userIdentifier}`);
+        return userById;
+      }
     } catch (error) {
+      this.logger.debug(`Error finding by MongoDB ID, will try Firebase UID next: ${error.message}`);
       // If not a valid MongoDB ID, continue to try Firebase UID
     }
     
     // Try to find by Firebase UID
     try {
-      return await this.findByFirebaseUid(userIdentifier);
+      const userByFirebaseUid = await this.findByFirebaseUid(userIdentifier);
+      this.logger.debug(`Found user by Firebase UID: ${userIdentifier}`);
+      return userByFirebaseUid;
     } catch (error) {
+      this.logger.warn(`User not found with identifier: ${userIdentifier}`);
       throw new NotFoundException('User not found');
     }
   }
@@ -138,14 +182,21 @@ export class UserService {
     try {
       updatedUser = await this.userModel.findByIdAndUpdate(
         userIdentifier,
-        { accountType },
+        { 
+          accountType,
+          updatedAt: new Date()
+        },
         { new: true }
       );
     } catch (error) {
+      this.logger.debug(`Error updating by MongoDB ID, trying Firebase UID: ${error.message}`);
       // If not a valid MongoDB ID, try by Firebase UID
       updatedUser = await this.userModel.findOneAndUpdate(
         { firebaseUid: userIdentifier },
-        { accountType },
+        { 
+          accountType,
+          updatedAt: new Date()
+        },
         { new: true }
       );
     }
@@ -161,8 +212,11 @@ export class UserService {
 
   // Edit profile - works with either ID or Firebase UID
   async editProfile(userIdentifier: string, profileData: EditProfileDto) {
+    this.logger.log(`Editing profile for user ${userIdentifier}`);
+    
     // Check if email is being updated and is already in use by another user
     if (profileData.email) {
+      this.logger.debug(`Checking if email ${profileData.email} is already in use`);
       const existingUserWithEmail = await this.userModel.findOne({
         email: profileData.email,
       });
@@ -170,6 +224,7 @@ export class UserService {
       if (existingUserWithEmail && 
           existingUserWithEmail._id.toString() !== userIdentifier &&
           existingUserWithEmail.firebaseUid !== userIdentifier) {
+        this.logger.warn(`Email ${profileData.email} is already in use by another user`);
         throw new ConflictException('Email already in use');
       }
     }
@@ -177,7 +232,8 @@ export class UserService {
     // Convert dateOfBirth to Date object if provided
     const updateData = {
       ...profileData,
-      ...(profileData.dateOfBirth && { dateOfBirth: new Date(profileData.dateOfBirth) })
+      ...(profileData.dateOfBirth && { dateOfBirth: new Date(profileData.dateOfBirth) }),
+      updatedAt: new Date()
     };
   
     let updatedUser;
@@ -190,6 +246,7 @@ export class UserService {
         { new: true }
       );
     } catch (error) {
+      this.logger.debug(`Error updating by MongoDB ID, trying Firebase UID: ${error.message}`);
       // If not a valid MongoDB ID, try by Firebase UID
       updatedUser = await this.userModel.findOneAndUpdate(
         { firebaseUid: userIdentifier },
@@ -199,9 +256,11 @@ export class UserService {
     }
   
     if (!updatedUser) {
+      this.logger.warn(`User not found with identifier: ${userIdentifier}`);
       throw new NotFoundException('User not found');
     }
   
+    this.logger.log(`Profile updated successfully for user ${userIdentifier}`);
     return updatedUser;
   }
 }
