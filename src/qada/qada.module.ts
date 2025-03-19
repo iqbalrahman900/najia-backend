@@ -5,9 +5,11 @@ import { QadaController } from './qada.controller';
 import { QadaService } from './qada.service';
 import { QadaTracker, QadaTrackerSchema } from './schemas/qada.schema';
 import { User, UserSchema } from '../user/schemas/user.schema';
+import { FirebaseModule } from 'src/firebase/firebase.module';
 
 @Module({
   imports: [
+    FirebaseModule,
     MongooseModule.forFeature([
       { name: QadaTracker.name, schema: QadaTrackerSchema },
       { name: User.name, schema: UserSchema }

@@ -5,9 +5,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { User } from '../decorators/user.decorator';
 import { EditProfileDto } from './dto/edit-profile.dto';
 import { Public } from '../decorators/public.decorator';
+import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+@UseGuards(FirebaseAuthGuard)
 export class UserController {
   private readonly logger = new Logger(UserController.name);
   
