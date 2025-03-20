@@ -62,7 +62,7 @@ export class UserService {
   }
 
   // Create a new user from phone number (called after OTP verification)
-  async createUser(phoneNumber: string, firebaseUid?: string) {
+  async createUser(phoneNumber: string, firebaseUid?: string, fcmToken?: string) {
     this.logger.log(`Creating/finding user with phone: ${phoneNumber}, Firebase UID: ${firebaseUid || 'none'}`);
     
     try {
@@ -72,12 +72,27 @@ export class UserService {
       if (existingUser) {
         this.logger.log(`User already exists with phone ${phoneNumber}, ID: ${existingUser._id}`);
         
+        // Keep track if we need to update the user
+        let needsUpdate = false;
+        
         // If user exists but doesn't have firebaseUid (and one is provided), update it
         if (firebaseUid && !existingUser.firebaseUid) {
           this.logger.log(`Updating existing user with Firebase UID: ${firebaseUid}`);
           existingUser.firebaseUid = firebaseUid;
+          needsUpdate = true;
+        }
+        
+        // If fcmToken is provided, update it
+        if (fcmToken) {
+          this.logger.log(`Updating existing user with FCM token`);
+          existingUser.fcmToken = fcmToken;
+          needsUpdate = true;
+        }
+        
+        // Save if any updates were made
+        if (needsUpdate) {
           await existingUser.save();
-          this.logger.log('Firebase UID updated successfully');
+          this.logger.log('User updated successfully');
         }
         
         return existingUser;
@@ -87,7 +102,8 @@ export class UserService {
       this.logger.log(`No existing user found, creating new user with phone: ${phoneNumber}`);
       const user = new this.userModel({
         phoneNumber,
-        firebaseUid, // Store firebaseUid if provided (for transition period)
+        firebaseUid,  // Store firebaseUid if provided
+        fcmToken,     // Store fcmToken if provided
         isProfileComplete: false,
         accountType: 'basic',
         createdAt: new Date()
@@ -262,5 +278,43 @@ export class UserService {
   
     this.logger.log(`Profile updated successfully for user ${userIdentifier}`);
     return updatedUser;
+  }
+  
+  // Update FCM token - works with either ID or Firebase UID
+  async updateFcmToken(userIdentifier: string, fcmToken: string) {
+    this.logger.log(`Updating FCM token for user ${userIdentifier}`);
+    
+    let updatedUser;
+    
+    // Try to update by MongoDB ID first
+    try {
+      updatedUser = await this.userModel.findByIdAndUpdate(
+        userIdentifier,
+        { 
+          fcmToken,
+          updatedAt: new Date()
+        },
+        { new: true }
+      );
+    } catch (error) {
+      this.logger.debug(`Error updating by MongoDB ID, trying Firebase UID: ${error.message}`);
+      // If not a valid MongoDB ID, try by Firebase UID
+      updatedUser = await this.userModel.findOneAndUpdate(
+        { firebaseUid: userIdentifier },
+        { 
+          fcmToken,
+          updatedAt: new Date()
+        },
+        { new: true }
+      );
+    }
+
+    if (!updatedUser) {
+      this.logger.error(`User not found with identifier: ${userIdentifier}`);
+      throw new NotFoundException('User not found');
+    }
+
+    this.logger.log(`Successfully updated FCM token for user ${userIdentifier}`);
+    return { success: true };
   }
 }

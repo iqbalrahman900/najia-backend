@@ -19,6 +19,7 @@ export class UserController {
   async register(
     @Body('phoneNumber') phoneNumber: string,
     @Body('firebaseUid') firebaseUid?: string,
+    @Body('fcmToken') fcmToken?: string,
     @Headers('authorization') authHeader?: string
   ) {
     // Log the incoming request
@@ -30,7 +31,7 @@ export class UserController {
     }
     
     try {
-      const user = await this.userService.createUser(phoneNumber, firebaseUid);
+      const user = await this.userService.createUser(phoneNumber, firebaseUid, fcmToken);
       this.logger.log(`User registered successfully: ${user._id}`);
       return {
         success: true,
@@ -95,5 +96,14 @@ export class UserController {
     
     this.logger.log(`Account upgraded successfully for user: ${userId}`);
     return updatedUser;
+  }
+
+  @Patch('fcm-token')
+  async updateFcmToken(
+    @User('userId') userId: string,
+    @Body('token') fcmToken: string,
+  ) {
+    this.logger.log(`Updating FCM token for user: ${userId}`);
+    return this.userService.updateFcmToken(userId, fcmToken);
   }
 }

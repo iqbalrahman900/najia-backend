@@ -32,6 +32,9 @@ export class User {
 
   @Prop({ default: 'basic', enum: ['basic', 'premium'] })
   accountType: string;
+
+  @Prop({ sparse: true })
+  fcmToken: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
